@@ -25,6 +25,3 @@ override.tf.json
 # Plan files
 *.plan
 
-# External data output files
-image_uri.txt
-

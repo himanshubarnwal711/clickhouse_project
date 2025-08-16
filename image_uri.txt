@@ -1,0 +1,1 @@
+460264892221.dkr.ecr.ap-south-1.amazonaws.com/a552762-dev-service-layer-poc-clickhouse-clickhouse:latest
