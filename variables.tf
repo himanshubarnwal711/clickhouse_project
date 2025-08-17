@@ -21,3 +21,14 @@ variable "app_code" {
   type        = string
   default     = "service-layer-poc-clickhouse"
 }
+
+variable "project_name" {
+  description = "Name of the project to prefix resources"
+  type        = string
+}
+
+variable "container_name" {
+  description = "Name of the ECS container"
+  type        = string
+}
+
