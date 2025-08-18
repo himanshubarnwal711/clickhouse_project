@@ -91,3 +91,21 @@ module "ecs_task" {
   log_group                            = "/ecs/clickhouse"
 }
 
+module "ecs_service" {
+  source = "./modules/ecs_service"
+
+  service_name       = "a552762-clickhouse"
+  cluster_name       = "a552762-dev-service-layer-poc-clickhouse-ecs-cluster" # or module.ecs_ec2.ecs_cluster_name
+  capacity_provider  = "a552762-dev-service-layer-poc-clickhouse-cp"          # or module.ecs_ec2.ecs_capacity_provider
+  desired_count      = 2
+  private_subnet_ids = ["subnet-0703bab646f373360", "subnet-04c427be942503ae0"] # from your outputs
+  public_subnet_ids  = ["subnet-00c1ca1790f9ec877", "subnet-0042c54ada28e337d"] # from your outputs
+  vpc_id             = "vpc-08e145f79b0abbb5b"
+  alb_sg             = "sg-00ffe18a5977346e0"
+  ecs_task_sg        = "sg-0a0a2a71119abd42e"
+  docker_image_uri   = "460264892221.dkr.ecr.ap-south-1.amazonaws.com/a552762-dev-service-layer-poc-clickhouse-clickhouse:latest"
+  container_name     = "clickhouse"
+  container_port     = 8123
+  task_cpu           = 512
+  task_memory        = 1024
+}

@@ -19,14 +19,14 @@ resource "aws_autoscaling_group" "ecs_asg" {
   launch_template {
     id = aws_launch_template.ecs_lt.id
     # Use the 'latest_version' attribute for a more robust reference
-    version = "$$${aws_launch_template.ecs_lt.latest_version}"
+    version = aws_launch_template.ecs_lt.latest_version
   }
 
   health_check_type         = "EC2"
   health_check_grace_period = 300
   wait_for_capacity_timeout = "10m"
   force_delete              = false
-  #   new_instances_protected_from_scale_in = true
+  protect_from_scale_in     = true
 
   # Enable Instance Refresh for zero-downtime updates
   instance_refresh {
