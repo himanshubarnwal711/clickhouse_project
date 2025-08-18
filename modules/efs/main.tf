@@ -34,9 +34,9 @@ resource "aws_efs_access_point" "ap" {
 
 # Mount targets (one per private subnet)
 resource "aws_efs_mount_target" "mt" {
-  for_each = toset(var.private_subnet_ids)
+  for_each = { for idx, subnet_id in var.private_subnet_ids : idx => subnet_id }
 
   file_system_id  = aws_efs_file_system.this.id
-  subnet_id       = each.key
+  subnet_id       = each.value
   security_groups = [var.efs_security_group_id]
 }

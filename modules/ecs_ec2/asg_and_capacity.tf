@@ -25,7 +25,7 @@ resource "aws_autoscaling_group" "ecs_asg" {
   health_check_type         = "EC2"
   health_check_grace_period = 300
   wait_for_capacity_timeout = "10m"
-  force_delete              = false
+  force_delete              = true
   protect_from_scale_in     = true
 
   # Enable Instance Refresh for zero-downtime updates

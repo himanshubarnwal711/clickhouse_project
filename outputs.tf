@@ -47,3 +47,11 @@ output "efs_id" {
 output "efs_access_point_id" {
   value = module.efs.efs_access_point_id
 }
+
+output "alb_dns_name" {
+  value = module.ecs_service.alb_dns_name
+}
+
+output "target_group_arn" {
+  value = module.ecs_service.target_group_arn
+}
