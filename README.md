@@ -1,144 +1,203 @@
-# ECS ClickHouse Deployment on AWS using Terraform
+# ECS EC2 Cluster Deployment with Systemd ECS Agent on Ubuntu
 
-This project provisions an **Amazon ECS Cluster** with EC2 instances running ClickHouse in a private subnet and exposes it via an **Application Load Balancer (ALB)** using **Terraform**.
+This README provides a step-by-step guide for deploying an **Amazon ECS EC2 Cluster** using **Terraform** with the ECS agent running as a **systemd service** on Ubuntu instances.
 
 ---
 
-## ✅ Features
+## ✅ Overview
 
-- ECS Cluster with EC2 launch type using **Capacity Provider**
-- Auto Scaling Group for ECS instances
-- ECS Service with desired task count
-- ALB with **target group on container port 8123**
-- Security Groups for ALB and ECS tasks
-- VPC with public and private subnets
-- Health checks configured for target group
+- **Infrastructure as Code:** Terraform
+- **Cluster Type:** ECS EC2 (not Fargate)
+- **AMI:** Ubuntu (custom or AWS official)
+- **ECS Agent:** Installed and managed via `systemd`
+- **Container Runtime:** Docker
+- **Launch Template:** Configured with dynamic user data
+- **Networking:** VPC, Subnets, Security Groups
+- **IAM Role:** ECS Instance Role
 
 ---
 
 ## 🛠 Prerequisites
 
-- **Terraform >= 1.0.0**
-- **AWS CLI configured** with proper credentials
-- **ECR image** for ClickHouse (already pushed)
-- **IAM permissions** for creating VPC, ECS, ALB, EC2, Security Groups, IAM Roles
+1. **Terraform v1.5+**
+2. **AWS CLI configured** with proper credentials
+3. **Key Pair** for SSH access
+4. **IAM Role & Instance Profile** with ECS and SSM permissions
+5. **Ubuntu-based AMI** (ensure ECS agent is not pre-installed)
 
 ---
 
-## 📂 Project Structure
+## 📂 Directory Structure
 
 ```
 .
-├── main.tf                # Root module
-├── variables.tf           # Global variables
-├── outputs.tf             # Outputs
 ├── modules/
-│   ├── vpc/               # VPC and subnets
-│   ├── ecs_ec2/           # ECS cluster and EC2 instances
-│   ├── ecs_service/       # ECS Service and ALB configuration
-│   └── security_groups/   # Security groups for ALB and ECS tasks
+│   ├── ecs_ec2/
+│   │   ├── ami_and_launch.tf
+│   │   ├── asg_and_capacity.tf
+│   │   ├── userdata-ubuntu-ecs.sh
+│   │   └── variables.tf
+├── main.tf
+├── variables.tf
+└── outputs.tf
 ```
 
 ---
 
-## ⚙️ Variables
+## 🚀 Key Files
 
-Important variables:
-| Variable | Description |
-|----------------------|--------------------------------------------|
-| `service_name` | Name of the ECS service |
-| `cluster_name` | ECS Cluster name |
-| `capacity_provider` | Capacity provider name |
-| `private_subnet_ids`| IDs of private subnets for ECS tasks |
-| `public_subnet_ids` | IDs of public subnets for ALB |
-| `vpc_id` | VPC ID |
-| `alb_sg` | Security group for ALB |
-| `ecs_task_sg` | Security group for ECS tasks |
-| `docker_image_uri` | ECR image URI for ClickHouse |
-| `container_name` | Name of the container |
-| `container_port` | Container port (8123 for ClickHouse HTTP)|
-| `task_cpu` | ECS task CPU |
-| `task_memory` | ECS task memory |
+### **ami_and_launch.tf**
+
+Defines the **Launch Template**:
+
+```hcl
+resource "aws_launch_template" "ecs_lt" {
+  name_prefix   = "${var.name_prefix}-ecs-lt-"
+  image_id      = var.ami_id
+  instance_type = var.instance_type
+  key_name      = var.key_name != "" ? var.key_name : null
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ecs_instance_profile.name
+  }
+
+  network_interfaces {
+    associate_public_ip_address = false
+    security_groups             = [var.ecs_instance_sg_id]
+  }
+
+  user_data = base64encode(templatefile("${path.module}/userdata-ubuntu-ecs.sh", {
+    CLUSTER_NAME = var.cluster_name
+  }))
+
+  tag_specifications {
+    resource_type = "instance"
+    tags          = merge(var.tags, { Name = "${var.name_prefix}-ecs-instance" })
+  }
+}
+```
 
 ---
 
-## 🚀 Deployment Steps
+### **userdata-ubuntu-ecs.sh**
 
-### 1. Initialize Terraform
+Bootstraps the ECS instance with **Docker** and **ECS Agent (systemd)**:
 
 ```bash
-terraform init
-```
+#!/bin/bash
+set -e
 
-### 2. Validate Configuration
+# Variables
+CLUSTER_NAME="${CLUSTER_NAME}"
 
-```bash
-terraform validate
-```
+# Update and install dependencies
+apt-get update -y
+apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
 
-### 3. Plan
+# Add Docker GPG key and repo
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
 
-```bash
-terraform plan -out tfplan
-```
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" > /etc/apt/sources.list.d/docker.list
 
-### 4. Apply
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io
 
-```bash
-terraform apply tfplan
-```
+# Enable Docker
+systemctl enable docker
+systemctl start docker
 
-### 5. Destroy
+# Create ECS config
+mkdir -p /etc/ecs
+echo "ECS_CLUSTER=$CLUSTER_NAME" >> /etc/ecs/ecs.config
 
-```bash
-terraform destroy
-```
+# Download ECS Agent
+docker pull amazon/amazon-ecs-agent:latest
 
----
+# Create ECS systemd service
+cat <<EOF > /etc/systemd/system/ecs-agent.service
+[Unit]
+Description=Amazon ECS Agent
+After=docker.service
+Requires=docker.service
 
-## 🔗 ALB & Target Group
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker run --name ecs-agent --rm   -v /var/run/docker.sock:/var/run/docker.sock   -v /var/log/ecs/:/log   -v /var/lib/ecs/data:/data   -p 127.0.0.1:51678:51678   -e ECS_LOGFILE=/log/ecs-agent.log   -e ECS_LOGLEVEL=info   -e ECS_DATADIR=/data   -e ECS_CLUSTER=$CLUSTER_NAME   amazon/amazon-ecs-agent:latest
 
-- The **ALB** will forward traffic to the ECS service on **container port 8123**.
-- Target type is set to **instance**, so the traffic goes to EC2 instances where ECS tasks run.
-- Health check path: `/` (can be customized)
+ExecStop=/usr/bin/docker stop ecs-agent
 
----
+[Install]
+WantedBy=multi-user.target
+EOF
 
-## ✅ Health Check
-
-Configured with:
-
-- **Path**: `/`
-- **Protocol**: HTTP
-- **Interval**: 30 seconds
-- **Timeout**: 5 seconds
-- **Healthy threshold**: 2
-- **Unhealthy threshold**: 2
-
----
-
-## ⚠️ Common Issues & Fixes
-
-- **Error: Specifying both a launch type and capacity provider strategy**  
-  Remove `launch_type` when using `capacity_provider_strategy`.
-
-- **Target Group not attaching instances**  
-  Ensure the **target_type** is `instance` (not `ip`) for EC2 launch type.
-
----
-
-## 🖥 Access ClickHouse
-
-Once deployed, the ALB DNS name will provide access to ClickHouse HTTP interface on **port 8123**.
-
-Example:
-
-```
-http://<alb-dns-name>:8123/
+# Enable and start ECS Agent
+systemctl daemon-reload
+systemctl enable ecs-agent
+systemctl start ecs-agent
 ```
 
 ---
 
-### Author
+## ✅ Key Fixes Made
 
-Infrastructure by Terraform | Managed on AWS ECS
+- Corrected Docker APT repository configuration:
+
+```
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" > /etc/apt/sources.list.d/docker.list
+```
+
+- ECS Agent now runs as **systemd service** instead of background script.
+
+---
+
+## 🔍 Verification Steps
+
+1. Check ECS agent logs:
+
+```
+docker logs ecs-agent
+```
+
+2. Confirm instance is registered in ECS:
+
+```
+aws ecs list-container-instances --cluster <cluster_name>
+```
+
+3. Check systemd service:
+
+```
+systemctl status ecs-agent
+```
+
+---
+
+## 🧹 Clean Up
+
+To delete the instance profile:
+
+```
+aws iam remove-role-from-instance-profile --instance-profile-name <profile_name> --role-name <role_name>
+aws iam delete-instance-profile --instance-profile-name <profile_name>
+```
+
+---
+
+## 📌 Notes
+
+- Ensure **IAM policies** allow ECS and SSM actions.
+- Avoid hardcoding credentials in user data.
+
+---
+
+## ✅ Outputs
+
+- **ECR Repo URL**
+- **Docker Image URI**
+- **ECS Capacity Provider Name**
+
+```
+
+```
