@@ -7,6 +7,12 @@ resource "aws_ecs_task_definition" "this" {
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
   task_role_arn            = aws_iam_role.ecs_task_execution.arn
 
+  # Explicitly set runtime platform for Ubuntu x86_64 ECS instances
+  runtime_platform {
+    cpu_architecture        = "X86_64"
+    operating_system_family = "LINUX"
+  }
+
   container_definitions = jsonencode([
     {
       name      = var.container_name
@@ -14,8 +20,8 @@ resource "aws_ecs_task_definition" "this" {
       essential = true
       portMappings = [
         {
-          containerPort = 8123
-          hostPort      = 8123
+          containerPort = var.container_port
+          hostPort      = var.container_port
           protocol      = "tcp"
         }
       ]

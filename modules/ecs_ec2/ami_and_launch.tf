@@ -1,13 +1,6 @@
-# Prefer using SSM parameter to fetch the Bottlerocket ECS image id (keeps the AMI latest)
-data "aws_ssm_parameter" "bottlerocket_ami" {
-  name = "/aws/service/bottlerocket/aws-ecs-1/x86_64/latest/image_id"
-}
-
-# Fallback: if SSM param is not available in a region, user can change this block to a specific AMI.
-# Launch template using the Bottlerocket image_id
 resource "aws_launch_template" "ecs_lt" {
   name_prefix   = "${var.name_prefix}-ecs-lt-"
-  image_id      = data.aws_ssm_parameter.bottlerocket_ami.value
+  image_id      = var.ami_id
   instance_type = var.instance_type
   key_name      = var.key_name != "" ? var.key_name : null
 
@@ -20,12 +13,10 @@ resource "aws_launch_template" "ecs_lt" {
     security_groups             = [var.ecs_instance_sg_id]
   }
 
-  # Bottlerocket uses simple user-data settings format
-  user_data = base64encode(<<-EOF
-[settings.ecs]
-cluster = "${var.cluster_name != null ? var.cluster_name : "unspecified-cluster"}"
-EOF
-  )
+  # Ubuntu ECS bootstrap script
+  user_data = base64encode(templatefile("${path.module}/userdata-ubuntu-ecs.sh", {
+    CLUSTER_NAME = var.cluster_name
+  }))
 
   tag_specifications {
     resource_type = "instance"

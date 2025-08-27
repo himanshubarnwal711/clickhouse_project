@@ -56,14 +56,14 @@ module "efs" {
 
 # ECS EC2 module usage
 module "ecs_ec2" {
-  source = "./modules/ecs_ec2"
-
+  source             = "./modules/ecs_ec2"
   name_prefix        = local.resource_prefix
   cluster_name       = aws_ecs_cluster.clickhouse_ecs.name
   vpc_id             = module.networking.vpc_id
   private_subnet_ids = module.networking.private_subnet_ids
   ecs_instance_sg_id = module.networking.ecs_task_sg_id
   instance_type      = "t2.medium"
+  ami_id             = var.ami_id
   min_size           = 2
   max_size           = 4
   desired_capacity   = 2
@@ -73,6 +73,7 @@ module "ecs_ec2" {
     Project     = var.app_code
     AssetID     = var.asset_id
   }
+  depends_on = [aws_ecs_cluster.clickhouse_ecs]
 }
 
 module "ecs_task" {

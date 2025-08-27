@@ -20,6 +20,12 @@ variable "ecs_instance_sg_id" {
   type        = string
 }
 
+variable "ami_id" {
+  description = "The ID of the Amazon Machine Image (AMI) to use."
+  type        = string
+  default     = "ami-02d26659fd82cf299"
+}
+
 variable "instance_type" {
   type    = string
   default = "t2.medium"

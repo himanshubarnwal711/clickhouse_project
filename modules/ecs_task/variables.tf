@@ -18,6 +18,12 @@ variable "container_name" {
   type        = string
 }
 
+variable "container_port" {
+  description = "Port on which the container listens"
+  type        = number
+  default     = 8123
+}
+
 variable "image" {
   description = "Image URI for the container"
   type        = string
