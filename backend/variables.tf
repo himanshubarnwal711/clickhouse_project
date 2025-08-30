@@ -5,10 +5,10 @@ variable "region" {
 
 variable "s3_bucket_name" {
   type    = string
-  default = "service-layer-dev-poc-clickhouse-terraform-state"
+  default = "a552762-service-layer-dev-poc-clickhouse-terraform-state"
 }
 
 variable "dynamodb_table_name" {
   type    = string
-  default = "service-layer-poc-clickhouse-terraform-state"
+  default = "a552762-service-layer-poc-clickhouse-terraform-state"
 }

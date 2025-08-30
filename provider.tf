@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "service-layer-dev-poc-clickhouse-terraform-state"
+    bucket         = "a552762-service-layer-dev-poc-clickhouse-terraform-state"
     key            = "clickhouse/terraform.tfstate"
     region         = "ap-south-1"
-    dynamodb_table = "service-layer-poc-clickhouse-terraform-state"
+    dynamodb_table = "a552762-service-layer-poc-clickhouse-terraform-state"
     encrypt        = true
   }
 

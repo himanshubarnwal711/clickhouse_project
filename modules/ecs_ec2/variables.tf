@@ -23,7 +23,8 @@ variable "ecs_instance_sg_id" {
 variable "ami_id" {
   description = "The ID of the Amazon Machine Image (AMI) to use."
   type        = string
-  default     = "ami-02d26659fd82cf299"
+  default     = "ami-0861f4e788f5069dd" # -- "For Amazo Linux 2023 al2023-ami-2023.8.20250818.0-kernel-6.1-x86_64"
+  # For ubuntu - "ami-02d26659fd82cf299" -- (x86_64 aarch and in ap-south-1 region)
 }
 
 variable "instance_type" {

@@ -14,7 +14,7 @@ resource "aws_launch_template" "ecs_lt" {
   }
 
   # Ubuntu ECS bootstrap script
-  user_data = base64encode(templatefile("${path.module}/userdata-ubuntu-ecs.sh", {
+  user_data = base64encode(templatefile("${path.module}/userdata-amazon_linux-ecs.sh", {
     CLUSTER_NAME = var.cluster_name
   }))
 
